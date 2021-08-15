@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 img_w = 640
 img_h = 480
-
+ratio = 0.3
 
 # 绕cx,cy逆时针旋转
 def Nrotate(angle, valuex, valuey, pointx, pointy):
@@ -33,21 +33,21 @@ def dsd(cx, cy, old_view, new_view, frame):
     if old_view > new_view:
         angle = (old_view - new_view) * 5
         sPointx, sPointy = Srotate(math.radians(angle), cx, cy, img_w/2, img_h/2)
-    local_frame_h = int(img_h * 0.3)
-    local_frame_w = int(img_w * 0.3)
+    local_frame_h = int(img_h * ratio)
+    local_frame_w = int(img_w * ratio)
     y_start = max((int(sPointy) - local_frame_h), 0)
-    y_end = min((int(sPointy) + local_frame_h), 1080)
+    y_end = min((int(sPointy) + local_frame_h), img_h)
     x_start = max((int(sPointx) - local_frame_w), 0)
-    x_end = min((int(sPointx) + local_frame_w), 1920)
-    cv2.namedWindow('local', cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)
-    cv2.resizeWindow('local', 960, 720)
-    cv2.imshow('local', frame)
-    cv2.waitKey(0)
+    x_end = min((int(sPointx) + local_frame_w), img_w)
+    # cv2.namedWindow('local', cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)
+    # cv2.resizeWindow('local', 960, 720)
+    # cv2.imshow('local', frame)
+    # cv2.waitKey(0)
     local_frame = frame[int(y_start): int(y_end), int(x_start): int(x_end)]
     # cv2.namedWindow('local', cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)
     # cv2.resizeWindow('local', 960, 720)
-    cv2.imshow('local1', local_frame)
-    cv2.waitKey(0)
+    # cv2.imshow('local1', local_frame)
+    # cv2.waitKey(0)
 
     return new_view, local_frame, x_start, y_start
 
