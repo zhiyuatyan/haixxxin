@@ -91,7 +91,7 @@ class Video_Dis(QMainWindow, Ui_MainWindow):
         self.video_display = None
 
         # 跟踪需要的flag
-        self.select_player_flag = False  # 选择球员
+        self.select_player_flag = True  # 选择球员
         self.track_flag = False  # 跟踪标志，开始或暂停
         self.first_frame = False
         self.video_change_flag = False
