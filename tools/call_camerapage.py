@@ -15,13 +15,12 @@ from video_dispaly import Ui_MainWindow
 
 import init_arg
 from collections import deque
-
+from threading import Thread
 import kuashidian
 from tools.tracker import MyTracker
 
 import cv2
 
-select_flag_mylabel = False
 init_rect = []
 
 
@@ -33,12 +32,12 @@ class myLabel(QLabel):
     flag = False
 
     def mousePressEvent(self, event):
-        self.flag = True
+        # self.flag = True
         self.x0 = event.x()
         self.y0 = event.y()
 
     def mouseReleaseEvent(self, event):
-        self.flag = False
+        pass
 
     def mouseMoveEvent(self, event):
         if self.flag:
@@ -46,14 +45,12 @@ class myLabel(QLabel):
             self.y1 = event.y()
             self.update()
 
-    # 清除label对象的绘制内容
-    def clear_label(self):
-        self.label_show.clear_flag = True
-        self.label_show.clear()
+    def clear(self):
+        self.flag = False
 
     def paintEvent(self, event):
         super().paintEvent(event)
-        if select_flag_mylabel:
+        if self.flag:
             rect = QRect(self.x0, self.y0, abs(self.x1 - self.x0), abs(self.y1 - self.y0))
             painter = QPainter(self)
             painter.setPen(QPen(Qt.red, 4, Qt.SolidLine))
@@ -61,17 +58,14 @@ class myLabel(QLabel):
 
             global init_rect
             init_rect = [self.x0, self.y0, abs(self.x1 - self.x0), abs(self.y1 - self.y0)]
-        self.update()
-
-        # pqscreen = QGuiApplication.primaryScreen()
-        # pixmap2 = pqscreen.grabWindow(self.winId(), self.x0, self.y0, abs(self.x1 - self.x0), abs(self.y1 - self.y0))
-        # pixmap2.save('555.png')
+        # self.update()
 
 
 class Video_Dis(QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None):
         super(Video_Dis, self).__init__(parent)
         self.setupUi(self)
+        self.open_video.clicked.connect(self.openVideo)
         self.pushButton.clicked.connect(self.on_video)
         self.select_player.clicked.connect(self.select_ROI)
         self.start.clicked.connect(self.confirm_player)
@@ -90,25 +84,35 @@ class Video_Dis(QMainWindow, Ui_MainWindow):
         self.push9.clicked.connect(lambda: self.videochange(9))
 
         self.args = init_arg.args()
-
-        # 跟踪需要的flag
         self.pred_bbox = []
         self.save_view_2 = deque(maxlen=2)
         self.push_buttom = 0
         self.frame_count = 0
-        self.select_flag = True  # 选择球员
-        self.tag_flag = 0
-        self.open_flag = False
-        self.confirm_flag = False
-        self.yesofplayer = False
+        self.video_display = None
+
+        # 跟踪需要的flag
+        self.select_player_flag = False  # 选择球员
+        self.track_flag = False  # 跟踪标志，开始或暂停
+        self.first_frame = False
         self.video_change_flag = False
-        self.video_display = cv2.VideoCapture(self.args.video_name0)
+
+        self.tag_flag = 0
         self.save_view_2.append(0)
         self.painter = QPainter(self)
 
         self.initUI()
+        self.tracker = None
+
+    # 清除label对象的绘制内容
+    def clearRect(self):
+        self.play_label.clear()
+
+    def printRect(self):
+        self.play_label.flag = True
+
+    def loadTracker(self):
         self.tracker = MyTracker()
-        self.first_frame = True
+        print("tracker加载成功！！！")
 
     def initUI(self):
         self.play_label = myLabel(self)
@@ -125,6 +129,70 @@ class Video_Dis(QMainWindow, Ui_MainWindow):
         self.play_label.setLineWidth(3)
         self.play_label.setMidLineWidth(0)
         self.play_label.setObjectName("play_label")
+        # 新建线程加载跟踪模型
+        t = Thread(target=self.loadTracker)
+        t.start()
+
+    def btnInit(self):
+        self.first_frame = True
+        self.select_player.setEnabled(True)
+        self.select_player.setText("选择球员")
+        self.start.setEnabled(True)
+        self.start.setText("跟踪器初始化")
+
+    def openVideo(self):
+        fileDialog = QFileDialog()
+        # 设置可以打开任何文件
+        fileDialog.setFileMode(QFileDialog.AnyFile)
+        # 打开文件选取的窗口，并返回文件路径
+        videoPath, _ = fileDialog.getOpenFileName(self.open_video, 'open file', './', )  #
+        if not videoPath:
+            QMessageBox.warning(self.open_video, "警告", "文件错误或打开文件失败！", QMessageBox.Yes)
+            return
+        self.video_display = cv2.VideoCapture(videoPath)
+        print("读入文件成功")
+        self.btnInit()
+        self.update()
+
+    def on_video(self):
+        if self.track_flag:
+            self.pushButton.setText('开始跟踪')
+
+        else:
+            self.pushButton.setText('暂停跟踪')
+        self.track_flag = bool(1 - self.track_flag)
+
+    def confirm_player(self):
+        self.start.setText('正在初始化')
+        t = Thread(target=self.trackerInit)
+        t.start()
+        # self.trackerInit()
+
+    def trackerInit(self):
+        print('current :', init_rect)
+        self.current_player = frame_copy[int(init_rect[1]):int(init_rect[1] + init_rect[3]),
+                              int(init_rect[0]):int(init_rect[0] + init_rect[2])]
+
+        self.tracker.init(frame_copy, init_rect, 30)
+        print('done')
+        self.start.setText('初始化完成')
+        self.start.setEnabled(False)
+
+    def select_ROI(self):
+        self.printRect()
+        if self.select_player_flag:
+            self.select_player.setText('select')
+        else:
+            self.select_player.setText('球员已确定')
+            self.select_player.setEnabled(False)
+        self.select_player_flag = bool(1 - self.select_player_flag)
+
+    def showPic(self, frame):
+        frame = cv2.resize(frame, (640, 480), interpolation=cv2.INTER_AREA)
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        self.Qframe = QImage(frame.data, frame.shape[1], frame.shape[0], frame.shape[1] * 3,
+                             QImage.Format_RGB888)
+        self.play_label.setPixmap(QPixmap.fromImage(self.Qframe))
 
     def videochange(self, pushbuttom):
         self.video_change_flag = True
@@ -230,6 +298,7 @@ class Video_Dis(QMainWindow, Ui_MainWindow):
                 self.video_display = cv2.VideoCapture(self.args.video_name29)
                 print('29 push')
         print('Button {0} clicked'.format(pushbuttom))
+        self.update()
 
     # 下拉菜单
     def WrittingNotOfOther(self, tag):
@@ -273,102 +342,53 @@ class Video_Dis(QMainWindow, Ui_MainWindow):
             self.push8.setText('视角28')
             self.push9.setText('视角29')
 
-    def on_video(self):
-        if self.open_flag:
-            self.pushButton.setText('开始跟踪')
-        else:
-            self.pushButton.setText('暂停跟踪')
-        self.open_flag = bool(1 - self.open_flag)
-
-    def confirm_player(self):
-        if self.confirm_flag:
-            if self.first_frame:
-                self.yesofplayer = True
-            self.start.setText('初始化完成')
-        else:
-
-            self.yesofplayer = False
-            self.start.setText('开始初始化')
-        self.confirm_flag = bool(1 - self.confirm_flag)
-
-    def select_ROI(self):
-        global select_flag_mylabel
-        if self.select_flag:
-
-            select_flag_mylabel = False
-            self.select_player.setText('select')
-        else:
-            if self.first_frame:
-                select_flag_mylabel = True
-            else:
-                select_flag_mylabel = False
-            self.select_player.setText('球员已确定')
-        self.select_flag = bool(1 - self.select_flag)
-
     def paintEvent(self, a0: QtGui.QPaintEvent):
+        if not self.video_display:
+            self.first_frame = True
+        else:
+            if self.first_frame:
+                ret, frame = self.video_display.read()
+                global frame_copy
+                frame_copy = frame
+                self.showPic(frame)
+                self.first_frame = False
 
-        if self.select_flag:
-            ret, frame = self.video_display.read()
-            frame = cv2.resize(frame, (640, 480), interpolation=cv2.INTER_AREA)
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            global frame_copy
-            frame_copy = frame
-            self.Qframe = QImage(frame.data, frame.shape[1], frame.shape[0], frame.shape[1] * 3,
-                                 QImage.Format_RGB888)
-            self.play_label.setPixmap(QPixmap.fromImage(self.Qframe))
-            self.show()
-            self.select_flag = False
-
-        if self.yesofplayer:
-            print('current :', init_rect)
-            self.current_player = frame_copy[int(init_rect[1]):int(init_rect[1] + init_rect[3]),
-                                  int(init_rect[0]):int(init_rect[0] + init_rect[2])]
-
-            self.tracker.init(frame_copy, init_rect, 30)
-            print('done')
-            self.first_frame = False
-            self.yesofplayer = False
-
-            self.Qframe_roi = QImage(frame.data, frame.shape[1], frame.shape[0], frame.shape[1] * 3,
-                                 QImage.Format_RGB888)
-            self.play_label.setPixmap(QPixmap.fromImage(self.Qframe))
-
-        if self.open_flag:
-            ret, frame = self.video_display.read()
-            frame = cv2.resize(frame, (640, 480), interpolation=cv2.INTER_AREA)
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            outputs = self.tracker.track(frame)
-            self.pred_bbox = outputs['bbox']
-            self.frame_count = outputs['count']
-
-            print('pred_boxo', self.pred_bbox, self.frame_count)
-            frame = cv2.rectangle(frame, (int(self.pred_bbox[0]), int(self.pred_bbox[1])),
-                                  (int(self.pred_bbox[0] + self.pred_bbox[2]),
-                                   int(self.pred_bbox[1] + self.pred_bbox[3])), (0, 255, 255),
-                                  3)
-            self.Qframe = QImage(frame.data, frame.shape[1], frame.shape[0], frame.shape[1] * 3,
-                                 QImage.Format_RGB888)
-            self.play_label.setPixmap(QPixmap.fromImage(self.Qframe))
-
-            self.update()
-
-        if self.video_change_flag:
-            ret, frame = self.video_display.read()
-            frame = cv2.resize(frame, (640, 480), interpolation=cv2.INTER_AREA)
-            self.video_display.set(1, self.frame_count)
-            self.video_change_flag = False
-            print('old_view : ', self.save_view_2[0], 'new_view : ', self.save_view_2[1])
-            new_view, img_local, x_start, y_start = kuashidian.dsd(self.pred_bbox[4], self.pred_bbox[5],
-                                                                   self.save_view_2[0],
-                                                                   self.save_view_2[1], frame)
-            print(' ', self.pred_bbox[4], self.pred_bbox[5])
-            img_local = cv2.resize(img_local, (351, 211), interpolation=cv2.INTER_AREA)
-            img_local = cv2.cvtColor(img_local, cv2.COLOR_BGR2RGB)
-            self.Qframe_ksd = QImage(img_local.data, img_local.shape[1], img_local.shape[0], img_local.shape[1] * 3,
+            if self.track_flag:
+                ret, frame = self.video_display.read()
+                frame = cv2.resize(frame, (640, 480), interpolation=cv2.INTER_AREA)
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                outputs = self.tracker.track(frame)
+                self.pred_bbox = outputs['bbox']
+                self.frame_count = outputs['count']
+                self.clearRect()
+                print('pred_boxo', self.pred_bbox, self.frame_count)
+                frame = cv2.rectangle(frame, (int(self.pred_bbox[0]), int(self.pred_bbox[1])),
+                                      (int(self.pred_bbox[0] + self.pred_bbox[2]),
+                                       int(self.pred_bbox[1] + self.pred_bbox[3])), (0, 255, 255),
+                                      3)
+                self.Qframe = QImage(frame.data, frame.shape[1], frame.shape[0], frame.shape[1] * 3,
                                      QImage.Format_RGB888)
-            self.ksd_view.setPixmap(QPixmap.fromImage(self.Qframe_ksd))
-            print('done')
-            self.show()
+                self.play_label.setPixmap(QPixmap.fromImage(self.Qframe))
+
+                self.update()
+
+            if self.video_change_flag:
+                ret, frame = self.video_display.read()
+                frame = cv2.resize(frame, (640, 480), interpolation=cv2.INTER_AREA)
+                self.video_display.set(1, self.frame_count)
+                self.video_change_flag = False
+                print('old_view : ', self.save_view_2[0], 'new_view : ', self.save_view_2[1])
+                new_view, img_local, x_start, y_start = kuashidian.dsd(self.pred_bbox[4], self.pred_bbox[5],
+                                                                       self.save_view_2[0],
+                                                                       self.save_view_2[1], frame)
+                print(' ', self.pred_bbox[4], self.pred_bbox[5])
+                img_local = cv2.resize(img_local, (351, 211), interpolation=cv2.INTER_AREA)
+                img_local = cv2.cvtColor(img_local, cv2.COLOR_BGR2RGB)
+                self.Qframe_ksd = QImage(img_local.data, img_local.shape[1], img_local.shape[0], img_local.shape[1] * 3,
+                                         QImage.Format_RGB888)
+                self.ksd_view.setPixmap(QPixmap.fromImage(self.Qframe_ksd))
+                print('done')
+                self.show()
 
 
 if __name__ == '__main__':

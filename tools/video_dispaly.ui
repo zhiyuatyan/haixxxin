@@ -46,7 +46,7 @@ font-family:微软雅黑;
     <property name="geometry">
      <rect>
       <x>80</x>
-      <y>460</y>
+      <y>480</y>
       <width>111</width>
       <height>41</height>
      </rect>
@@ -89,10 +89,13 @@ border-color: #6633FF;
      <number>0</number>
     </property>
     <property name="text">
-     <string/>
+     <string>视频播放区域</string>
     </property>
     <property name="scaledContents">
      <bool>false</bool>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignCenter</set>
     </property>
     <property name="margin">
      <number>0</number>
@@ -102,7 +105,7 @@ border-color: #6633FF;
     <property name="geometry">
      <rect>
       <x>80</x>
-      <y>340</y>
+      <y>380</y>
       <width>111</width>
       <height>41</height>
      </rect>
@@ -121,7 +124,7 @@ border:2px groove gray;border-radius:10px;padding:2px 4px;</string>
     <property name="geometry">
      <rect>
       <x>80</x>
-      <y>400</y>
+      <y>430</y>
       <width>111</width>
       <height>41</height>
      </rect>
@@ -173,7 +176,7 @@ border:2px groove gray;border-radius:10px;padding:2px 4px;</string>
       <x>70</x>
       <y>120</y>
       <width>131</width>
-      <height>181</height>
+      <height>196</height>
      </rect>
     </property>
     <layout class="QFormLayout" name="formLayout">
@@ -403,6 +406,25 @@ border-color: #6633FF;
      <string/>
     </property>
    </widget>
+   <widget class="QPushButton" name="open_video">
+    <property name="geometry">
+     <rect>
+      <x>80</x>
+      <y>330</y>
+      <width>111</width>
+      <height>41</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">color:Black;
+font-family:微软雅黑;
+background:rgb(255, 255, 255, 60);
+border:2px groove gray;border-radius:10px;padding:2px 4px;</string>
+    </property>
+    <property name="text">
+     <string>打开视频文件</string>
+    </property>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
@@ -410,7 +432,7 @@ border-color: #6633FF;
      <x>0</x>
      <y>0</y>
      <width>1369</width>
-     <height>26</height>
+     <height>22</height>
     </rect>
    </property>
   </widget>
