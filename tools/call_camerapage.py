@@ -104,6 +104,7 @@ class Video_Dis(QMainWindow, Ui_MainWindow):
         self.video_change_flag = False
         self.video_display = cv2.VideoCapture(self.args.video_name0)
         self.save_view_2.append(0)
+        self.img_local_player = None
         self.painter = QPainter(self)
 
         self.initUI()
@@ -321,17 +322,21 @@ class Video_Dis(QMainWindow, Ui_MainWindow):
 
         if self.yesofplayer:
             print('current :', init_rect)
-            self.current_player = frame_copy[int(init_rect[1]):int(init_rect[1] + init_rect[3]),
+            self.img_local_player = frame_copy[int(init_rect[1]):int(init_rect[1] + init_rect[3]),
                                   int(init_rect[0]):int(init_rect[0] + init_rect[2])]
-
             self.tracker.init(frame_copy, init_rect, 30)
             print('done')
             self.first_frame = False
             self.yesofplayer = False
 
-            self.Qframe_roi = QImage(frame.data, frame.shape[1], frame.shape[0], frame.shape[1] * 3,
-                                 QImage.Format_RGB888)
-            self.play_label.setPixmap(QPixmap.fromImage(self.Qframe))
+            self.img_local_player = cv2.resize(self.img_local_player, (121, 161), interpolation=cv2.INTER_AREA)
+            self.img_local_player = cv2.cvtColor(self.img_local_player, cv2.COLOR_BGR2RGB)
+
+            self.Qframe_roi = QImage(self.img_local_player.data, self.img_local_player.shape[1], self.img_local_player.shape[0], self.img_local_player.shape[1] * 3,
+                                     QImage.Format_RGB888)
+            self.current_player.setPixmap(QPixmap.fromImage(self.Qframe_roi))
+
+            self.show()
 
         if self.open_flag:
             ret, frame = self.video_display.read()
@@ -361,6 +366,12 @@ class Video_Dis(QMainWindow, Ui_MainWindow):
             new_view, img_local, x_start, y_start = kuashidian.dsd(self.pred_bbox[4], self.pred_bbox[5],
                                                                    self.save_view_2[0],
                                                                    self.save_view_2[1], frame)
+            # _, new_target_bbox = self.tracker.updateTarget(self.tracker.img_roi, img_local)
+            # new_target_bbox[0] = new_target_bbox[0] + x_start
+            # new_target_bbox[1] = new_target_bbox[1] + y_start
+            # init_rect1 = new_target_bbox  # 这里要放新的 bbox
+            #
+            # self.tracker.init(frame, init_rect1, 30)
             print(' ', self.pred_bbox[4], self.pred_bbox[5])
             img_local = cv2.resize(img_local, (351, 211), interpolation=cv2.INTER_AREA)
             img_local = cv2.cvtColor(img_local, cv2.COLOR_BGR2RGB)
