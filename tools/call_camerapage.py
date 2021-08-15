@@ -362,7 +362,7 @@ class Video_Dis(QMainWindow, Ui_MainWindow):
             ret, frame = self.video_display.read()
             frame = cv2.resize(frame, (640, 480), interpolation=cv2.INTER_AREA)
             self.video_change_flag = False
-
+            #
             print('old_view : ', self.save_view_2[0], 'new_view : ', self.save_view_2[1])
             new_view, img_local, x_start, y_start = kuashidian.dsd(self.pred_bbox[4], self.pred_bbox[5],
                                                                    self.save_view_2[0],
