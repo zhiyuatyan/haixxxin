@@ -21,44 +21,45 @@ from tools.tracker import MyTracker
 
 import cv2
 
-init_rect = []
 
-
+# 每次触发paintEvent，程序都会操作画笔画画，但如果flag==False，rect就总是（0，0，0，0），导致显示不出矩形框。
 class myLabel(QLabel):
-    x0 = 0
-    y0 = 0
-    x1 = 0
-    y1 = 0
-    flag = False
+    def __init__(self, windows):
+        super(myLabel, self).__init__(windows)
+        self.flag = False  # 控制改变rect的值
+        self.rect = (0, 0, 0, 0)
 
     def mousePressEvent(self, event):
-        # self.flag = True
-        self.x0 = event.x()
-        self.y0 = event.y()
+        if self.flag:
+            self.rect = (event.x(), event.y(), 0, 0)
 
     def mouseReleaseEvent(self, event):
         pass
 
     def mouseMoveEvent(self, event):
         if self.flag:
-            self.x1 = event.x()
-            self.y1 = event.y()
+            start_x, start_y = self.rect[0:2]
+            self.rect = (start_x, start_y, event.x() - start_x, event.y() - start_y)
             self.update()
 
-    def clear(self):
+    def startPaint(self):
+        self.flag = True
+
+    def endPaint(self):
         self.flag = False
+
+    def clear(self):
+        self.rect = (0, 0, 0, 0)
+        self.update()
 
     def paintEvent(self, event):
         super().paintEvent(event)
-        if self.flag:
-            rect = QRect(self.x0, self.y0, abs(self.x1 - self.x0), abs(self.y1 - self.y0))
-            painter = QPainter(self)
-            painter.setPen(QPen(Qt.red, 4, Qt.SolidLine))
-            painter.drawRect(rect)
-
-            global init_rect
-            init_rect = [self.x0, self.y0, abs(self.x1 - self.x0), abs(self.y1 - self.y0)]
-        # self.update()
+        painter = QPainter(self)
+        painter.setPen(QPen(Qt.red, 4, Qt.SolidLine))
+        painter.drawRect(QRect(*self.rect))
+        global init_rect
+        init_rect = [*self.rect]
+    # self.update()
 
 
 class Video_Dis(QMainWindow, Ui_MainWindow):
@@ -107,7 +108,10 @@ class Video_Dis(QMainWindow, Ui_MainWindow):
     def clearRect(self):
         self.play_label.clear()
 
-    def printRect(self):
+    def startPrintRect(self):
+        self.play_label.flag = True
+
+    def startPrintRect(self):
         self.play_label.flag = True
 
     def loadTracker(self):
@@ -157,7 +161,6 @@ class Video_Dis(QMainWindow, Ui_MainWindow):
     def on_video(self):
         if self.track_flag:
             self.pushButton.setText('开始跟踪')
-
         else:
             self.pushButton.setText('暂停跟踪')
         self.track_flag = bool(1 - self.track_flag)
@@ -179,17 +182,22 @@ class Video_Dis(QMainWindow, Ui_MainWindow):
         self.start.setEnabled(False)
 
     def select_ROI(self):
-        self.printRect()
+        self.startPrintRect()
         if self.select_player_flag:
             self.select_player.setText('select')
         else:
             self.select_player.setText('球员已确定')
+            self.play_label.flag = False
             self.select_player.setEnabled(False)
         self.select_player_flag = bool(1 - self.select_player_flag)
 
-    def showPic(self, frame):
+    def resizePic(self, frame):
         frame = cv2.resize(frame, (640, 480), interpolation=cv2.INTER_AREA)
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        return frame
+
+    def showPic(self, frame):
+
         self.Qframe = QImage(frame.data, frame.shape[1], frame.shape[0], frame.shape[1] * 3,
                              QImage.Format_RGB888)
         self.play_label.setPixmap(QPixmap.fromImage(self.Qframe))
@@ -343,20 +351,21 @@ class Video_Dis(QMainWindow, Ui_MainWindow):
             self.push9.setText('视角29')
 
     def paintEvent(self, a0: QtGui.QPaintEvent):
+        print('1')
         if not self.video_display:
             self.first_frame = True
         else:
             if self.first_frame:
                 ret, frame = self.video_display.read()
+                frame = self.resizePic(frame)
                 global frame_copy
                 frame_copy = frame
                 self.showPic(frame)
                 self.first_frame = False
 
-            if self.track_flag:
+            elif self.track_flag:
                 ret, frame = self.video_display.read()
-                frame = cv2.resize(frame, (640, 480), interpolation=cv2.INTER_AREA)
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                frame = self.resizePic(frame)
                 outputs = self.tracker.track(frame)
                 self.pred_bbox = outputs['bbox']
                 self.frame_count = outputs['count']
@@ -366,13 +375,11 @@ class Video_Dis(QMainWindow, Ui_MainWindow):
                                       (int(self.pred_bbox[0] + self.pred_bbox[2]),
                                        int(self.pred_bbox[1] + self.pred_bbox[3])), (0, 255, 255),
                                       3)
-                self.Qframe = QImage(frame.data, frame.shape[1], frame.shape[0], frame.shape[1] * 3,
-                                     QImage.Format_RGB888)
-                self.play_label.setPixmap(QPixmap.fromImage(self.Qframe))
+                self.showPic(frame)
 
                 self.update()
 
-            if self.video_change_flag:
+            elif self.video_change_flag:
                 ret, frame = self.video_display.read()
                 frame = cv2.resize(frame, (640, 480), interpolation=cv2.INTER_AREA)
                 self.video_display.set(1, self.frame_count)
